@@ -123,8 +123,8 @@ if (!defined('IN_PLUGIN')) exit();
                     </div>
                 </div>
             </div>
-            <div class="open_app" style="display: none;">
-                <a class="btn-open-app">打开支付宝APP继续付款</a><br /><br /><br />
+            <div class="mobile_tip" style="display: none;">
+                <div style="text-align:center;color:#e8501c;font-size:15px;margin:15px 0 5px;">请截图保存上方二维码，打开支付宝扫一扫完成支付</div>
                 <a onclick="checkresult()" class="btn-check">我已付款，返回查看订单</a>
             </div>
             <div class="detail" id="orderDetail" style="margin-top: 0px;">
@@ -155,7 +155,6 @@ if (!defined('IN_PLUGIN')) exit();
             var code_url = '<?php echo $code_url ?>';
             var code_type = code_url.indexOf('data:image/') > -1 ? 1 : 0;
             if (code_type == 0) {
-                var url_scheme = 'alipays://platformapi/startapp?appId=20000067&url=' + encodeURIComponent(code_url);
                 $('#qrcode').qrcode({
                     text: code_url,
                     width: 230,
@@ -260,16 +259,10 @@ if (!defined('IN_PLUGIN')) exit();
                     };
                     window.history.pushState('forward', null, '');
                 }
-                if (isMobile() && code_type == 0) {
-                    $('.open_app').show();
+                if (isMobile()) {
+                    $('.mobile_tip').show();
                     if (navigator.userAgent.indexOf('MicroMessenger/') > 0) {
                         $(".top-guide").show();
-                        $('.btn-open-app').attr('href', 'javascript:wx_open()');
-                    } else {
-                        $('.btn-open-app').attr('href', url_scheme)
-                        if (navigator.userAgent.indexOf('EdgA/') == -1) {
-                            setTimeout(window.location.href = url_scheme, 1000);
-                        }
                     }
                 }
                 $("body").click(function() {
