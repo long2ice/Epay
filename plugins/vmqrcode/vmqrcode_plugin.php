@@ -17,7 +17,7 @@ class vmqrcode_plugin
             'appurl' => [
                 'name' => '收款二维码地址',
                 'type' => 'input',
-                'note' => '收款二维码图片URL地址',
+                'note' => '收款二维码图片URL地址，多个地址用英文逗号分隔，每次随机选择一个',
             ],
         ],
         'select'   => null,
@@ -79,7 +79,8 @@ class vmqrcode_plugin
         global $siteurl, $cdnpublic, $order, $channel, $conf;
 
         $amount = self::getUniqueAmount();
-        $qrcode_url = trim($channel['appurl']);
+        $urls = array_filter(array_map('trim', explode(',', $channel['appurl'])));
+        $qrcode_url = $urls[array_rand($urls)];
 
         include PAY_ROOT . 'page/qrcode.page.php';
         exit;
