@@ -97,32 +97,14 @@ jobs:
           [[ "$digest" == "$IMAGE@sha256:"* ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
-      - uses: azure/setup-kubectl@v4
-        if: steps.publish.outputs.digest != ''
-        with:
-          version: v1.33.9
-
-      - name: Deploy verified digest with rollback
-        if: steps.publish.outputs.digest != ''
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
-          PHP_VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          export KUBECONFIG="$RUNNER_TEMP/epay-kubeconfig"
-          umask 077
-          if [[ "$KUBE_CONFIG" == *"apiVersion:"* ]]; then
-            printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
-          else
-            printf '%s' "$KUBE_CONFIG" | base64 --decode > "$KUBECONFIG"
-          fi
-          trap 'rm -f "$KUBECONFIG"' EXIT
-          bash scripts/deploy-image.sh "$IMAGE_DIGEST" "$PHP_VERSION"
-
-      - name: Promote deployed image to latest
+      - name: Promote verified image for Keel
         if: steps.publish.outputs.digest != ''
         env:
           IMAGE: ${{ steps.current.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+          PHP_VERSION: ${{ steps.release.outputs.version }}
         run: |
+          # Keel polls this tag inside the cluster; hosted runners cannot reach its API.
           docker tag epay:candidate "$IMAGE:latest"
           docker push "$IMAGE:latest"
+          printf 'Verified PHP %s image published for Keel: `%s`\n' "$PHP_VERSION" "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

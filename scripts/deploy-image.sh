@@ -7,7 +7,7 @@ version=${2:?PHP version required}
 containers=(epay epay-alipaycode-1 epay-alipaycode-2 epay-alipaycode-4)
 backup=$(mktemp)
 trap 'rm -f "$backup"' EXIT
-kubectl -n default get pods -l app=epay -o json > "$backup"
+kubectl -n default get pods -l app=epay --request-timeout=20s -o json > "$backup"
 previous=()
 while IFS= read -r assignment; do previous+=("$assignment"); done < <(python3 - "$backup" <<'PY'
 import json, sys
@@ -25,13 +25,13 @@ PY
 printf 'Rollback image: %s\n' "${previous[@]}"
 rollback() {
     echo 'Deployment verification failed; restoring previous image digests.' >&2
-    kubectl -n default set image deployment/epay "${previous[@]}"
+    kubectl -n default set image deployment/epay --request-timeout=20s "${previous[@]}"
     kubectl -n default rollout status deployment/epay --timeout=300s
 }
 updates=()
 for container in "${containers[@]}"; do updates+=("$container=$image"); done
 trap 'rollback' ERR
-kubectl -n default set image deployment/epay "${updates[@]}"
+kubectl -n default set image deployment/epay --request-timeout=20s "${updates[@]}"
 kubectl -n default rollout status deployment/epay --timeout=300s
 for container in "${containers[@]}"; do
     actual=$(kubectl -n default exec deployment/epay -c "$container" -- php -r 'echo PHP_VERSION;')
