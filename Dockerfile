@@ -1,6 +1,5 @@
 ARG PHP_VERSION=8.2.35
-ARG PHP_BASE_IMAGE=php:${PHP_VERSION}-fpm-alpine
-FROM ${PHP_BASE_IMAGE}
+FROM php:${PHP_VERSION}-fpm-alpine
 
 RUN apk add --no-cache nginx supervisor \
     && docker-php-ext-install pdo_mysql mysqli bcmath

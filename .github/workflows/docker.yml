@@ -74,9 +74,8 @@ jobs:
           if docker manifest inspect "php:$PHP_VERSION-fpm-alpine" > /dev/null 2>&1; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            # The source release can precede publication of Docker Hub binaries.
-            [[ "$PHP_VERSION" == 8.2.35 ]]
             echo "available=false" >> "$GITHUB_OUTPUT"
+            printf 'PHP %s is released, but its official FPM/Alpine image is not available yet. No deployment performed.\n' "$PHP_VERSION" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Build candidate with a fresh PHP base
@@ -95,33 +94,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build PHP 8.2.35 from the official source recipe
-        if: steps.current.outputs.build == 'true' && steps.base.outputs.available == 'false'
-        env:
-          PHP_VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          # Immutable Docker-maintained recipe: verifies the PHP tarball's SHA256
-          # and release signature, then builds the same Alpine/FPM configuration.
-          docker build --builder default --pull -t epay-php:source \
-            'https://github.com/docker-library/php.git#e3eaff845f7a9f7259c31da54dce0320b47a3bbd:8.2/alpine3.23/fpm'
-          actual=$(docker run --rm epay-php:source php -r 'echo PHP_VERSION;')
-          [[ "$actual" == "$PHP_VERSION" ]]
-          docker build --builder default -t epay:candidate \
-            --build-arg "PHP_VERSION=$PHP_VERSION" \
-            --build-arg PHP_BASE_IMAGE=epay-php:source \
-            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --label "org.opencontainers.image.version=$PHP_VERSION" .
-
       - name: Verify PHP, extensions, and Nginx to FPM requests
-        if: steps.current.outputs.build == 'true'
+        if: steps.current.outputs.build == 'true' && steps.base.outputs.available == 'true'
         env:
           PHP_VERSION: ${{ steps.release.outputs.version }}
         run: bash scripts/check-image.sh epay:candidate "$PHP_VERSION"
 
       - name: Publish verified candidate
         id: publish
-        if: steps.current.outputs.build == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: steps.current.outputs.build == 'true' && steps.base.outputs.available == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           IMAGE: ${{ steps.current.outputs.image }}
           PHP_VERSION: ${{ steps.release.outputs.version }}
