@@ -74,6 +74,10 @@ jobs:
           pull: true
           tags: epay:candidate
           build-args: PHP_VERSION=${{ steps.release.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
