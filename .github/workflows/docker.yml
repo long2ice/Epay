@@ -65,8 +65,22 @@ jobs:
           fi
           echo "build=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build candidate with a fresh PHP base
+      - name: Check official PHP base availability
+        id: base
         if: steps.current.outputs.build == 'true'
+        env:
+          PHP_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if docker manifest inspect "php:$PHP_VERSION-fpm-alpine" > /dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            # The source release can precede publication of Docker Hub binaries.
+            [[ "$PHP_VERSION" == 8.2.35 ]]
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build candidate with a fresh PHP base
+        if: steps.current.outputs.build == 'true' && steps.base.outputs.available == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -80,6 +94,24 @@ jobs:
             org.opencontainers.image.version=${{ steps.release.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build PHP 8.2.35 from the official source recipe
+        if: steps.current.outputs.build == 'true' && steps.base.outputs.available == 'false'
+        env:
+          PHP_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          # Immutable Docker-maintained recipe: verifies the PHP tarball's SHA256
+          # and release signature, then builds the same Alpine/FPM configuration.
+          docker build --builder default --pull -t epay-php:source \
+            'https://github.com/docker-library/php.git#e3eaff845f7a9f7259c31da54dce0320b47a3bbd:8.2/alpine3.23/fpm'
+          actual=$(docker run --rm epay-php:source php -r 'echo PHP_VERSION;')
+          [[ "$actual" == "$PHP_VERSION" ]]
+          docker build --builder default -t epay:candidate \
+            --build-arg "PHP_VERSION=$PHP_VERSION" \
+            --build-arg PHP_BASE_IMAGE=epay-php:source \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$PHP_VERSION" .
 
       - name: Verify PHP, extensions, and Nginx to FPM requests
         if: steps.current.outputs.build == 'true'
