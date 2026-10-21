@@ -1,4 +1,5 @@
-FROM php:8.2-fpm-alpine
+ARG PHP_VERSION=8.2.34
+FROM php:${PHP_VERSION}-fpm-alpine
 
 RUN apk add --no-cache nginx supervisor \
     && docker-php-ext-install pdo_mysql mysqli bcmath
